@@ -16,3 +16,8 @@ TODO_REAL_TESTS.md
 server.log
 install_*.log
 mymodel_test_workspace/
+.venv
+.pack-tmp
+.venv-build
+artifacts
+.pyi-spec/
