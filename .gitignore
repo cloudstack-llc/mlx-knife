@@ -22,3 +22,9 @@ install_*.log
 .claude/
 openwebui311/bin/
 .gitignore
+
+.pack-tmp
+.pyi-spec
+.venv
+.venv-build
+artifacts
