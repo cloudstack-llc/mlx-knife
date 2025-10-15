@@ -109,6 +109,8 @@ APP_NAME="${BIN_NAME:-${APP_NAME:-msty-mlx-studio}}"
 OUT_ROOT="${DIST_DIR:-dist-ext-python}"
 OUT_DIR="$OUT_ROOT/$APP_NAME"
 VENDOR_DIR="$OUT_DIR/_vendor"
+ART_DIR="$ROOT_DIR/artifacts"
+mkdir -p "$ART_DIR"
 
 # -----------------------------------------------------------------------------
 # Resolve Python interpreter used for installs
@@ -257,7 +259,7 @@ PY
   fi
 
   echo "[2/3b] Installing mlxk2 package into vendor..."
-  "$PY" -m pip install --target "$VENDOR_DIR" . ${PIP_ARGS:-}
+  "$PY" -m pip install --upgrade --force-reinstall --target "$VENDOR_DIR" . ${PIP_ARGS:-}
 
   if [[ -n "$CUSTOM_MLX_WHEEL" ]]; then
     echo "[opt] Installing custom MLX wheel into vendor..."
@@ -283,6 +285,9 @@ VENDOR_DIR="$SELF_DIR/_vendor"
 PY="${MLXK_PYTHON:-}"
 if [[ -z "$PY" && -n "${RESOURCES_PATH:-}" && -x "$RESOURCES_PATH/python/bin/python3" ]]; then
   PY="$RESOURCES_PATH/python/bin/python3"
+fi
+if [[ -z "$PY" && -x "$SELF_DIR/python/bin/python3" ]]; then
+  PY="$SELF_DIR/python/bin/python3"
 fi
 if [[ -z "$PY" && -x "$SELF_DIR/../python/bin/python3" ]]; then
   PY="$SELF_DIR/../python/bin/python3"
@@ -403,3 +408,17 @@ echo "  $OUT_DIR/$APP_NAME --python-info"
 echo "  $OUT_DIR/$APP_NAME --check-mlx-stack"
 echo "  MLXK_PYTHON=\"/path/to/MyApp.app/Contents/Resources/python/bin/python3\" \\
     $OUT_DIR/$APP_NAME --version"
+
+# -----------------------------------------------------------------------------
+# Package tarball for distribution (unless skipped)
+# -----------------------------------------------------------------------------
+if [[ "${SKIP_TAR:-0}" != "1" ]]; then
+  TAR_BASE="$APP_NAME"
+  if [[ -n "${VERSION:-}" ]]; then
+    TAR_BASE="$TAR_BASE-${VERSION}"
+  fi
+  TAR_NAME="${ARCHIVE_NAME:-${TAR_BASE}.tgz}"
+  echo "[package] Creating $ART_DIR/$TAR_NAME"
+  tar -C "$OUT_ROOT" -czf "$ART_DIR/$TAR_NAME" "$APP_NAME"
+  echo "Created: $ART_DIR/$TAR_NAME"
+fi

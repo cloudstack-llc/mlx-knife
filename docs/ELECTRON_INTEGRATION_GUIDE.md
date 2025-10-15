@@ -79,13 +79,17 @@ Once the files are in place, the CLI can list/run the model immediately.
 ### Cancellation
 `MLXKModelDownloader.cancelDownloadForModel(modelId)` stops in-flight downloads, removes partial files, and cleans up empty directories.
 
-## Environment variables for CLI processes
+## Environment for CLI processes
 
-Set these when spawning the CLI (already baked into `baseEnv` above):
+If you spawn the launcher directly from Electron, set these env vars:
 
+- `MLXK_PYTHON` – absolute path to embedded Python (e.g., `…/msty-mlx-studio/python/bin/python3`).
+- `RESOURCES_PATH` – bundle root (folder containing the launcher and `python/`).
 - `HF_HOME` – shared cache location for downloads and CLI usage.
 - `TRANSFORMERS_NO_TORCH=1`, `TRANSFORMERS_NO_TF=1`, `TRANSFORMERS_NO_FLAX=1` – faster start, no unwanted backend checks.
 - `HF_HUB_DISABLE_TELEMETRY=1` – avoid telemetry from Hugging Face Hub.
+
+Note: the native launcher compiled by our release process sets `MLXK2_SUPERVISE=0` by default so uvicorn runs in‑process (no extra python supervisor). This improves stop behavior from Electron.
 
 ## Server quick start
 
@@ -122,7 +126,11 @@ export function stopServer(child) {
 ```
 
 Notes:
-- The server runs in-process in the packaged binary. If `SIGINT` doesn’t stop it (rare), escalate to `SIGKILL`.
+- The server runs in‑process in the packaged binary (no uvicorn supervisor). If `SIGINT` doesn’t stop it (rare), escalate to `SIGKILL`.
 - The CLI also supports `server` as an alias for `serve` for backward compatibility with v1.
+
+Process model:
+- You should see `msty-mlx-studio` as the parent process and a single `python` child while the server is running.
+- Stopping the parent with `SIGINT`/`SIGTERM` stops the child promptly. A second signal escalates.
 
 That’s the entire integration: package the CLI once, manage downloads yourself with `MLXKModelDownloader`, and spawn the CLI for listing/running or serving models.

@@ -64,8 +64,12 @@ Where binaries land:
 
 ## Server behavior
 
-- The packaged binary runs the HTTP server in-process (single PID). This keeps process management simple from Electron.
+- The packaged binary runs the HTTP server in-process by default (no uvicorn supervisor). The native launcher sets `MLXK2_SUPERVISE=0` so there’s no extra python supervisor process.
 - Pressing Ctrl-C stops the process; from Electron, send `SIGINT` to the spawned process handle or `SIGKILL` if needed.
+
+Process naming:
+- The release pipeline compiles a native launcher so the parent process name appears as the launcher binary (e.g., `msty-mlx-studio`).
+- You’ll see one `python` child process while the server runs. Stopping the parent with `SIGINT`/`SIGTERM` stops the child promptly; a second signal escalates to `SIGKILL`.
 
 Version reporting:
 - The packaged binary prints only the numeric version for `--version`.
@@ -161,6 +165,17 @@ scripts/clear_quarantine_python.sh dist/<name>/python
 ```
 
 Or target your Electron resources path. This recurses through the folder and removes the `com.apple.quarantine` extended attribute, reporting any leftovers. (Sign and notarize for production distribution.)
+
+### Verify signing & notarization (local)
+
+1) Extract TGZ to a temp folder and locate the launcher.
+2) Reapply quarantine (simulating a download):
+   `xattr -w com.apple.quarantine "0081;$(date +%s);mlxk2;GatekeeperTest" <path-to-launcher>`
+3) Gatekeeper check (should be accepted as Notarized Developer ID):
+   `spctl -a -t exec -vv <path-to-launcher>`
+4) Codesign verification on key Mach-O files:
+   `codesign --verify --deep --strict --verbose=2 <path-to-launcher>`
+   `codesign --verify --strict --verbose=2 <bundle>/_vendor/pydantic_core/_pydantic_core*.so`
 
 ## Runtime Integration
 

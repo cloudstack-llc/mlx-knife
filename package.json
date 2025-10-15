@@ -1,0 +1,15 @@
+{
+  "name": "mlx-knife-build-tools",
+  "version": "2.0.0b3",
+  "private": true,
+  "scripts": {
+    "mlx:clear-quarantine:python": "scripts/clear_quarantine_python.sh python",
+    "mlx:sign:python:adhoc": "SIGN_ID=- scripts/sign_and_notarize.sh python --no-runtime",
+    "mlx:sign:python:adhoc:libval": "SIGN_ID=- scripts/sign_and_notarize.sh python --disable-libval",
+    "mlx:dev-unblock:python": "npm run mlx:clear-quarantine:python && npm run mlx:sign:python:adhoc",
+    "mlx:dev-unblock:python:libval": "npm run mlx:clear-quarantine:python && npm run mlx:sign:python:adhoc:libval",
+    "mlx:build:external": "EMBEDDED_PYTHON=\"$(pwd)/python/bin/python3\" scripts/build_external_python.sh",
+    "mlx:verify:external": "MLXK_PYTHON=\"$(pwd)/python/bin/python3\" ./dist-ext-python/msty-mlx-studio/msty-mlx-studio --python-info && MLXK_PYTHON=\"$(pwd)/python/bin/python3\" ./dist-ext-python/msty-mlx-studio/msty-mlx-studio --check-mlx-stack",
+    "mlx:release": "scripts/release.sh"
+  }
+}

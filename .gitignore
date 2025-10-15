@@ -28,3 +28,5 @@ openwebui311/bin/
 .venv
 .venv-build
 artifacts
+dist-ext-python
+python

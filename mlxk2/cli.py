@@ -303,6 +303,9 @@ def main():
             # Start server (this will run indefinitely)
             # Lazy import to avoid hard dependency on FastAPI/uvicorn at import time
             from .operations.serve import start_server
+            # Supervision: allow disabling subprocess uvicorn via env (for embedded/bundled launchers)
+            supervise_env = os.getenv("MLXK2_SUPERVISE", "1").strip().lower()
+            supervise_flag = supervise_env not in ("0", "false", "no", "off")
             start_server(
                 model=getattr(args, "model", None),
                 port=args.port,
@@ -311,7 +314,7 @@ def main():
                 reload=getattr(args, "reload", False),
                 log_level=getattr(args, "log_level", "info"),
                 verbose=getattr(args, "verbose", False),
-                supervise=True
+                supervise=supervise_flag
             )
             
             # Should never reach here (server runs indefinitely)
