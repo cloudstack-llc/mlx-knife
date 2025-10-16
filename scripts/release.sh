@@ -193,6 +193,22 @@ int main(int argc, char *argv[]) {
     setenv("PYTHONNOUSERSITE", "1", 0);
     // Disable supervised uvicorn subprocess; run server in-process
     setenv("MLXK2_SUPERVISE", "0", 1);
+    // Ensure any `python3` shebang or /usr/bin/env python3 resolves to embedded one
+    const char *old_path = getenv("PATH");
+    size_t newlen = strlen(bundleRoot) + strlen("/python/bin") + 1 + (old_path ? strlen(old_path) : 0) + 1;
+    char *newpath = (char*)malloc(newlen);
+    if (newpath) {
+        if (old_path && *old_path)
+            snprintf(newpath, newlen, "%s/python/bin:%s", bundleRoot, old_path);
+        else
+            snprintf(newpath, newlen, "%s/python/bin", bundleRoot);
+        setenv("PATH", newpath, 1);
+        free(newpath);
+    }
+    // Help Python find its stdlib explicitly
+    char pyHome[PATH_MAX]; snprintf(pyHome, sizeof(pyHome), "%s/python", bundleRoot);
+    setenv("PYTHONHOME", pyHome, 1);
+    setenv("PYTHONEXECUTABLE", pyPath, 1);
     // Prepend vendor to PYTHONPATH
     const char *pp = getenv("PYTHONPATH");
     if (pp && *pp) {
