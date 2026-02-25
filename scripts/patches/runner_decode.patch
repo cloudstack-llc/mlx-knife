@@ -1,0 +1,57 @@
+diff --git a/mlxk2/core/runner/__init__.py b/mlxk2/core/runner/__init__.py
+index d22aacc..ca9ad06 100644
+--- a/mlxk2/core/runner/__init__.py
++++ b/mlxk2/core/runner/__init__.py
+@@ -553,7 +553,7 @@ class MLXRunner:
+             # Use sliding window for proper decoding
+             start_idx = max(0, len(generated_tokens) - context_window)
+             window_tokens = generated_tokens[start_idx:]
+-            window_text = self._decode_tokens(window_tokens)
++            window_text = self.tokenizer.decode(window_tokens)
+ 
+             # Extract new text
+             if start_idx == 0:
+@@ -565,13 +565,13 @@ class MLXRunner:
+                     new_text = window_text
+                 previous_decoded = window_text
+             else:
+-                new_text = self._decode_tokens(window_tokens)
++                new_text = self.tokenizer.decode(window_tokens)
+                 if len(window_tokens) > 1:
+-                    prefix = self._decode_tokens(window_tokens[:-1])
++                    prefix = self.tokenizer.decode(window_tokens[:-1])
+                     if new_text.startswith(prefix):
+                         new_text = new_text[len(prefix):]
+                     else:
+-                        new_text = self._decode_tokens([token_id])
++                        new_text = self.tokenizer.decode([token_id])
+ 
+             if new_text:
+                 accumulated_response += new_text
+@@ -750,7 +750,7 @@ class MLXRunner:
+         # Decode full response using the streaming detokenizer
+         # This properly converts BPE space markers (Ġ U+0120) to spaces (U+0020)
+         # while tokenizer.decode() for slow tokenizers (LlamaTokenizer) does NOT.
+-        full_response = self._decode_tokens(all_tokens)
++        full_response = self.tokenizer.decode(all_tokens)
+ 
+         # Debug: Show raw generated tokens for quality analysis (enabled via --verbose)
+         if self.verbose:
+@@ -762,7 +762,7 @@ class MLXRunner:
+                 for tid in last_3_ids:
+                     try:
+                         # Use detokenizer for debug output too
+-                        decoded = self._decode_tokens([tid])
++                        decoded = self.tokenizer.decode([tid])
+                         last_3_decoded.append(f"{tid}={decoded!r}")
+                     except Exception:
+                         last_3_decoded.append(f"{tid}=<error>")
+@@ -778,7 +778,7 @@ class MLXRunner:
+             response = full_response[len(formatted_prompt):]
+         else:
+             # Decode generated tokens only (use detokenizer)
+-            decoded = self._decode_tokens(generated_tokens)
++            decoded = self.tokenizer.decode(generated_tokens)
+             response = decoded if isinstance(decoded, str) else str(decoded)
+ 
+         # Filter stop tokens (strings only)

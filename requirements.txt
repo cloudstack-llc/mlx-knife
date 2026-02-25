@@ -1,0 +1,20 @@
+# mlx_knife requirements
+# Core dependencies for HuggingFace model management
+
+huggingface-hub>=0.34.0
+requests>=2.32.0
+mlx-lm==0.30.5
+mlx>=0.30.0
+
+# API Server dependencies (for 'mlxk server' command)
+fastapi>=0.116.0
+uvicorn>=0.35.0
+pydantic>=2.11.0
+
+# Test dependencies (for FastAPI TestClient)
+httpx>=0.27.0
+
+# Vision Language Models support
+mlx-vlm==0.3.10
+
+# Note: Python 3.10+ required for vision support, tested on Apple Silicon M1/M2/M3/M4

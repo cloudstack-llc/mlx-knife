@@ -1,0 +1,195 @@
+--- a/mlxk2/core/server_base.py
++++ b/mlxk2/core/server_base.py
+@@ -278,9 +278,12 @@
+ 
+     yield f"data: {json.dumps(initial_response)}\n\n"
+ 
++    # Track tokens for usage stats
++    accumulated_text = ""
++    prompt_tokens = count_tokens(prompt, runner.tokenizer)
++
+     # Stream tokens
+     try:
+-        token_count = 0
+         for token in runner.generate_streaming(
+             prompt=prompt,
+             max_tokens=get_effective_max_tokens(runner, request.max_tokens, server_mode=True),
+@@ -292,7 +295,7 @@
+             # Stop promptly if server is shutting down
+             if _shutdown_event.is_set():
+                 raise KeyboardInterrupt()
+-            token_count += 1
++            accumulated_text += token
+ 
+             chunk_response = {
+                 "id": completion_id,
+@@ -364,9 +367,18 @@
+         }
+         yield f"data: {json.dumps(error_response)}\n\n"
+ 
+-    # Final response (skip if shutting down)
++    # Final response with usage (skip if shutting down)
+     if _shutdown_event.is_set():
+         return
++
++    # Calculate completion tokens
++    completion_tokens = count_tokens(accumulated_text, runner.tokenizer)
++
++    # Debug logging
++    import os
++    if os.environ.get("MLXK2_DEBUG"):
++        print(f"[DEBUG] Sending final chunk with usage: prompt={prompt_tokens}, completion={completion_tokens}, total={prompt_tokens + completion_tokens}")
++
+     final_response = {
+         "id": completion_id,
+         "object": "text_completion",
+@@ -379,12 +391,16 @@
+                 "logprobs": None,
+                 "finish_reason": "stop"
+             }
+-        ]
++        ],
++        "usage": {
++            "prompt_tokens": prompt_tokens,
++            "completion_tokens": completion_tokens,
++            "total_tokens": prompt_tokens + completion_tokens
++        }
+     }
+ 
+     yield f"data: {json.dumps(final_response)}\n\n"
+     yield "data: [DONE]\n\n"
+-    
+ 
+ 
+ async def generate_chat_stream(
+@@ -419,6 +435,12 @@
+ 
+     yield f"data: {json.dumps(initial_response)}\n\n"
+ 
++    # Track tokens for usage stats
++    accumulated_text = ""
++    # Count prompt tokens from original messages
++    total_prompt = "\n\n".join([msg.content for msg in messages])
++    prompt_tokens = count_tokens(total_prompt, runner.tokenizer)
++
+     # Stream tokens
+     try:
+         for token in runner.generate_streaming(
+@@ -433,6 +455,8 @@
+             # Stop promptly if server is shutting down
+             if _shutdown_event.is_set():
+                 raise KeyboardInterrupt()
++            accumulated_text += token
++
+             chunk_response = {
+                 "id": completion_id,
+                 "object": "chat.completion.chunk",
+@@ -531,9 +555,18 @@
+         }
+         yield f"data: {json.dumps(error_response)}\n\n"
+ 
+-    # Final response (skip if shutting down)
++    # Final response with usage (skip if shutting down)
+     if _shutdown_event.is_set():
+         return
++
++    # Calculate completion tokens
++    completion_tokens = count_tokens(accumulated_text, runner.tokenizer)
++
++    # Debug logging
++    import os
++    if os.environ.get("MLXK2_DEBUG"):
++        print(f"[DEBUG] Sending final chunk with usage: prompt={prompt_tokens}, completion={completion_tokens}, total={prompt_tokens + completion_tokens}")
++
+     final_response = {
+         "id": completion_id,
+         "object": "chat.completion.chunk",
+@@ -545,12 +578,16 @@
+                 "delta": {},
+                 "finish_reason": "stop"
+             }
+-        ]
++        ],
++        "usage": {
++            "prompt_tokens": prompt_tokens,
++            "completion_tokens": completion_tokens,
++            "total_tokens": prompt_tokens + completion_tokens
++        }
+     }
+ 
+     yield f"data: {json.dumps(final_response)}\n\n"
+     yield "data: [DONE]\n\n"
+-    
+ 
+ 
+ def format_chat_messages_for_runner(messages: List[ChatMessage]) -> List[Dict[str, str]]:
+@@ -596,8 +633,23 @@
+     return 2048
+ 
+ 
+-def count_tokens(text: str) -> int:
+-    """Rough token count estimation."""
++def count_tokens(text: str, tokenizer=None) -> int:
++    """Count tokens using tokenizer if available, otherwise estimate.
++
++    Args:
++        text: Text to count tokens for
++        tokenizer: Optional tokenizer for accurate counting
++
++    Returns:
++        Token count
++    """
++    if tokenizer is not None:
++        try:
++            tokens = tokenizer.encode(text)
++            return len(tokens) if isinstance(tokens, (list, tuple)) else 1
++        except Exception:
++            # Fallback to approximation if tokenizer fails
++            pass
+     return int(len(text.split()) * 1.3)  # Approximation, convert to int
+ 
+ 
+@@ -865,8 +917,8 @@
+                 use_chat_template=False
+             )
+ 
+-            prompt_tokens = count_tokens(prompt)
+-            completion_tokens = count_tokens(generated_text)
++            prompt_tokens = count_tokens(prompt, runner.tokenizer)
++            completion_tokens = count_tokens(generated_text, runner.tokenizer)
+ 
+             return CompletionResponse(
+                 id=completion_id,
+@@ -980,8 +1032,8 @@
+             repetition_penalty=request.repetition_penalty or 1.0,
+         )
+ 
+-        prompt_tokens = count_tokens(prompt)
+-        completion_tokens = count_tokens(generated_text)
++        prompt_tokens = count_tokens(prompt, getattr(runner, 'tokenizer', None))
++        completion_tokens = count_tokens(generated_text, getattr(runner, 'tokenizer', None))
+ 
+         # Graceful degradation: emulate SSE for stream=true
+         if request.stream:
+@@ -1044,8 +1096,8 @@
+ 
+     # Token counting (handle both string and list content - use filtered messages)
+     total_prompt = _extract_text_from_messages(messages)
+-    prompt_tokens = count_tokens(total_prompt)
+-    completion_tokens = count_tokens(generated_text)
++    prompt_tokens = count_tokens(total_prompt, runner.tokenizer)
++    completion_tokens = count_tokens(generated_text, runner.tokenizer)
+ 
+     return ChatCompletionResponse(
+         id=completion_id,
+@@ -1155,8 +1207,8 @@
+     )
+ 
+     # Token counting
+-    prompt_tokens = count_tokens(prompt)
+-    completion_tokens = count_tokens(generated_text)
++    prompt_tokens = count_tokens(prompt, getattr(runner, 'tokenizer', None))
++    completion_tokens = count_tokens(generated_text, getattr(runner, 'tokenizer', None))
+ 
+     # Graceful degradation: emulate SSE for stream=true
+     if request.stream:
